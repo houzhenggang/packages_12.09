@@ -1,0 +1,215 @@
+#!/bin/sh
+# Modified: RA <ravageralpha@gmail.com>
+
+USAGE(){
+    echo "Options:
+-a: Send to aria2 other than download torrent file only (Default: False)
+-p: Specify full aria2 RPC path (Default: http://localhost:6800/jsonrpc)
+-d: Specify the torrent files directory
+-f: Specify a feeds list file to download from
+-k: Specify keywords to filter RSS (AND [+] OR[SPACE , ;])
+-m: Specify max task one time (Default: 5)"
+}
+
+[ $# -eq 0 ] && USAGE && exit 0
+
+[ -z `which xsltproc` ] && echo "ERROR: No xsltproc detected,please install first" >&2 && exit 1
+[ -z `which wget` ] && echo "ERROR: No wget detected,please install first" >&2 && exit 1
+[ -n `which openssl` ] && MD5SUM='openssl md5'
+[ -n `which md5` ] && MD5SUM='md5'
+[ -n `which md5sum` ] && MD5SUM='md5sum'
+[ -z "$MD5SUM" ] && echo "Error: No md5sum/OpenSSL Tools,please install first" >&2 && exit 1
+
+DEFAULT_FOLDER="/etc/RSS"
+FEEDS="$DEFAULT_FOLDER/feeds"
+TEMPLATE="$DEFAULT_FOLDER/normal.xsl"
+TEMPLATE_ALT="$DEFAULT_FOLDER/alternate.xsl"
+
+DOWNLOAD_ONLY=1 # Download torrent file only
+KEYWORDS=".*"
+
+aria_RPC_JSONPATH='http://localhost:6800/jsonrpc'
+RSS='/tmp/feeds'
+MAX_TASK=5
+DELAY=2
+
+# PLEASE EDIT THIS IF YOU USE aria2 INSTEAD OF WGET
+aria2_OPTS="-q --timeout=5 --check-certificate=false --follow-torrent=false --on-download-complete=/etc/aria2/post"
+# aria2 option for download .torrent file , defalt for my openwrt modded version ,specific env need edit this
+# --follow-torrent=false to download .torrent file only other than parse them
+# --on-download-complete=/etc/RSS/post fix url encode filename <https://gist.github.com/3916408>
+# --check-certificate=false for https site
+
+WGET_FEED_OPTS='-q --no-check-certificate --timeout=5' # wget options for downloading feed
+WGET_DOWNLOADS_OPTS='-q -no-check-certificate --content-disposition -c -i -'
+# wget options for downloading files
+# --content-disposition to correctly rip torrent's filename from script like torrents.php?id=xyz
+# -c for not re-downloading torrents
+# -i - : url (passed through stdin as output of xsltproc | grep | sed) 
+# --no-check-certificate for https site
+
+# misc options
+#
+GREP_FILTER_COMMENTS='^\s*[^#]' # skip lines that start with # or empty
+GREP_OPTS="-i -E"
+SED_OPTS="-r -e"
+SED_REGEX='s/&amp;/&/g' # decode url encode
+XSLT_OPTS="--novalid"
+
+while getopts "ahp:d:f:k:m:" opt
+do
+    case "$opt" in
+        a)
+            DOWNLOAD_ONLY=0
+            ;;
+        d)
+            [ ! -d "$OPTARG" ] && echo "Error: Not a Folder" >&2 && exit 1
+            TORRENTS_FOLDER="$OPTARG"
+            DB="$TORRENTS_FOLDER/.rss.db"
+            ;;
+        f)
+            [ ! -f "$OPTARG" ] && echo "Error: Not a File" >&2 && exit 1
+            FEEDS="$OPTARG"
+            ;;
+        k)
+            KEYWORDS="$(echo "$OPTARG" | sed -e 's/[, ;]/|/g' -e 's/[+*]/.*/g')"
+            ;;
+        m)
+            [ ! $OPTARG -eq $OPTARG ] && echo "ERROR: Must be digit" >&2 && exit 1
+            [ $OPTARG -le 0 ] && echo "ERROR: Are you kidding me?" >&2 && exit 1
+            MAX_TASK=$OPTARG
+            ;;
+        h)
+            USAGE
+            exit 0
+            ;;
+        p)
+            aria_RPC_JSONPATH="$OPTARG"
+            ;;
+        :)
+            echo "Option -$OPTARG requires an argument." >&2
+            exit 1
+            ;;
+        \?)
+            echo -e -n "Invalid option: -$OPTARG\n" >&2
+            USAGE
+            exit 1
+            ;;
+    esac
+done
+
+#Check the env
+#
+[ -f "$RSS" ] && rm "$RSS"
+
+[ ! -f "$TEMPLATE" -o ! -f "$TEMPLATE_ALT" ] && echo "ERROR: Template file doesn't exist" >&2 && exit 1
+
+[ ! -f "$FEEDS" ] && echo "ERROR: No Feeds Supply" >&2 && exit 1
+
+[ ! -d "$TORRENTS_FOLDER" ] && echo "ERROR: Please Specify Torrent Folder" >&2 && exit 1
+
+# some function
+#
+cleanExit(){
+    [ -f "$RSS" ] && rm "$RSS"
+    exit 0
+}
+
+taskCount(){
+    MAX_TASK=$((${MAX_TASK}-1))
+}
+
+getMD5(){
+    echo -n "$1" | "$MD5SUM" | head -c32
+}
+
+md5check(){
+    
+    [ ! -f "$DB" ] && touch "$DB" && return 0
+
+    grep -q "$1" "$DB"
+    case $? in
+        0)
+            return 1
+            taskCount
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
+saveToDB(){
+    echo "$1" >> "$DB"
+    taskCount
+}
+
+#download feeds
+#
+cat "$FEEDS" | grep -re $GREP_FILTER_COMMENTS | while read FEED
+
+do
+    echo -n "Downloading feed: $FEED ... "
+    wget "$FEED" -O "$RSS" $WGET_FEED_OPTS
+
+    case $? in
+        0)
+            echo -e -n "Successful\n"
+            ;;
+        *)
+            echo -e -n "Fail\n"
+            rm "$RSS" 
+            continue
+            ;;
+    esac
+
+# process pattern
+    # some PT site have different scheme
+    CHECK_Template=`cat $RSS | grep -c "<enclosure url="`
+
+    if [ $CHECK_Template -eq 0 ]; then
+        URLS=`xsltproc $XSLT_OPTS "$TEMPLATE" "$RSS" | grep $GREP_OPTS "$KEYWORDS" | cut -d'|' -f2 | sed $SED_OPTS $SED_REGEX`
+    else
+        URLS=`xsltproc $XSLT_OPTS "$TEMPLATE_ALT" "$RSS" | grep $GREP_OPTS "$KEYWORDS" | cut -d'|' -f2 | sed $SED_OPTS $SED_REGEX`
+    fi
+
+    [ -z "$URLS" ] && echo "Error: No torrents attachment found" >&2 && cleanExit
+        
+    for URL in $URLS; do
+        
+        [ $MAX_TASK -eq 0 ] && echo "Enough" && cleanExit
+        MD5=$(getMD5 "$URL")
+        md5check "$MD5" || continue
+        
+        [ $DOWNLOAD_ONLY -eq 1 ] && {
+            echo -n "Downloading file: $URL ..."
+            if [ -n `which aria2c` ]; then
+                aria2c --dir="$TORRENTS_FOLDER" $aria2_OPTS "$URL"
+            else
+                echo "$URL" | wget -P "$TORRENTS_FOLDER" $WGET_DOWNLOADS_OPTS
+            fi
+            FLAG=$?
+        }
+
+        [ $DOWNLOAD_ONLY -eq 0 ] && {
+            echo -n "Send to aria2 RPC: $URL ..."
+            json="{\"jsonrpc\":\"2.0\", \"id\":\"RA\", \"method\":\"aria2.addUri\", \"params\":[[\""$URL"\"]]}"
+            wget -qO- --header="Content-Type: application/json" --post-data="$json" "$aria_RPC_JSONPATH" >/dev/null 2>&1
+            FLAG=$?
+        }
+
+        case $FLAG in
+            0)
+                echo -e -n "Successful\n"
+                saveToDB "$MD5"
+                ;;
+            *)
+                echo -e -n "Fail\n"
+                continue
+                ;;
+        esac
+        sleep $DELAY
+    done
+    # clean current RSS
+    rm "$RSS"
+done

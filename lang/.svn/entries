@@ -1,0 +1,274 @@
+10
+
+dir
+34398
+svn://svn.openwrt.org/openwrt/branches/packages_12.09/lang
+svn://svn.openwrt.org/openwrt
+
+
+
+2012-09-27T07:18:42.958901Z
+33563
+hcg
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+3c298f89-4303-0410-b956-a3cf2f4a3e73
+
+ruby
+dir
+
+python
+dir
+
+logilab-astng
+dir
+
+python-flup
+dir
+
+jsonpath
+dir
+
+python-json
+dir
+
+pybluez
+dir
+
+pyxdg
+dir
+
+perl-html-parser
+dir
+
+perl-uri
+dir
+
+php-pear-db
+dir
+
+4th
+dir
+
+python-crypto
+dir
+
+lsqlite3
+dir
+
+egenix-mx
+dir
+
+luasoap
+dir
+
+kid
+dir
+
+sigscheme
+dir
+
+erlang
+dir
+
+gst-python
+dir
+
+distribute
+dir
+
+telepathy-python
+dir
+
+tcl
+dir
+
+twisted
+dir
+
+luaprofiler
+dir
+
+pygobject
+dir
+
+yapsnmp
+dir
+
+mako
+dir
+
+pyserial
+dir
+
+ipython
+dir
+
+perl-dbi
+dir
+
+python-mimms
+dir
+
+perl-html-tree
+dir
+
+perl
+dir
+
+pyusb
+dir
+
+python-sip
+dir
+
+luasec
+dir
+
+python-dbus
+dir
+
+perl-lockfile-simple
+dir
+
+perl-compress-bzip2
+dir
+
+arm
+dir
+
+perl-www
+dir
+
+psycopg
+dir
+
+python-curl
+dir
+
+luafilesystem
+dir
+
+luasocket
+dir
+
+python-cjson
+dir
+
+python-imaging-library
+dir
+
+logilab-common
+dir
+
+pyrrd
+dir
+
+luasql
+dir
+
+urbi
+dir
+
+python-eeml
+dir
+
+python-ifconfig
+dir
+
+cython
+dir
+
+luaposix
+dir
+
+python-webpy
+dir
+
+numpy
+dir
+
+pysqlite
+dir
+
+pyyaml
+dir
+
+perl-net-telnet
+dir
+
+php-pear-xmlrpc
+dir
+
+python-django
+dir
+
+luaexpat
+dir
+
+simplejson
+dir
+
+pyclips
+dir
+
+perl-www-mechanize
+dir
+
+perl-www-curl
+dir
+
+eggdrop
+dir
+
+perl-html-tagset
+dir
+
+pyevent
+dir
+
+pyopenssl
+dir
+
+pypcap
+dir
+
+sqlite3-ruby
+dir
+
+jamvm
+dir
+
+xapian-bindings
+dir
+
+python2-chardet
+dir
+
+php4
+dir
+
+python-pyosc
+dir
+
+php-pear
+dir
+
+php5
+dir
+
+pymysql
+dir
+
